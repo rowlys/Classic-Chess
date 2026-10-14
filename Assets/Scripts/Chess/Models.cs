@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public enum PieceType { None, Pawn, Knight, Bishop, Rook, Queen, King }
@@ -69,5 +70,18 @@ public class Board
         this[m.To] = piece;     
         this[m.From] = default; 
         WhiteToMove = !WhiteToMove;
+    }
+
+    // Temporary: every square without a friendly piece. Step 5 replaces the body with the real rules.
+    public List<Move> MovesFrom(Vector2Int from)
+    {
+        var moves = new List<Move>();
+        for (int x = 0; x < Width; x++)
+            for (int y = 0; y < Height; y++)
+            {
+                var to = new Vector2Int(x, y);
+                if (this[to].IsEmpty || this[to].IsWhite != this[from].IsWhite) moves.Add(new Move(from, to));
+            }
+        return moves;
     }
 }
