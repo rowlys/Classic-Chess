@@ -22,7 +22,7 @@ public struct Move
     { From = from; To = to; Promotion = promotion; }
 }
 
-public class Board
+public partial class Board
 {
     public Piece[,] Squares; // [file, rank]: (0,0) = a1, (7,7) = h8
     public int Width => Squares.GetLength(0);
@@ -30,6 +30,9 @@ public class Board
 
     public bool WhiteToMove = true;
     public Vector2Int? EnPassantTarget;
+
+    // Classic chess: true. The roguelike turns it off so the king is just a piece that can be captured.
+    public bool KingIsRoyal = true;
 
     public Board(int width = 8, int height = 8) => Squares = new Piece[width, height];
 
@@ -66,22 +69,31 @@ public class Board
     public void Apply(Move m)
     {
         var piece = this[m.From];
-        piece.HasMoved = true;
-        this[m.To] = piece;     
-        this[m.From] = default; 
-        WhiteToMove = !WhiteToMove;
-    }
+        var delta = m.To - m.From;
 
-    // Temporary: every square without a friendly piece. Step 5 replaces the body with the real rules.
-    public List<Move> MovesFrom(Vector2Int from)
-    {
-        var moves = new List<Move>();
-        for (int x = 0; x < Width; x++)
-            for (int y = 0; y < Height; y++)
-            {
-                var to = new Vector2Int(x, y);
-                if (this[to].IsEmpty || this[to].IsWhite != this[from].IsWhite) moves.Add(new Move(from, to));
-            }
-        return moves;
+        // En passant: a pawn moving diagonally onto an empty square captures the pawn beside it
+        if (piece.Type == PieceType.Pawn && delta.x != 0 && this[m.To].IsEmpty)
+            this[new Vector2Int(m.To.x, m.From.y)] = default;
+
+        // Castling: the king moves two squares, the rook jumps to the square the king crossed
+        if (piece.Type == PieceType.King && Mathf.Abs(delta.x) == 2)
+        {
+            var rookFrom = new Vector2Int(delta.x > 0 ? Width - 1 : 0, m.From.y);
+            var rook = this[rookFrom];
+            rook.HasMoved = true;
+            this[m.From + new Vector2Int(delta.x / 2, 0)] = rook;
+            this[rookFrom] = default;
+        }
+
+        // After a double step, remember the skipped square for one turn so it can be captured en passant
+        EnPassantTarget = piece.Type == PieceType.Pawn && Mathf.Abs(delta.y) == 2
+            ? m.From + new Vector2Int(0, delta.y / 2)
+            : (Vector2Int?)null;
+
+        if (m.Promotion != PieceType.None) piece.Type = m.Promotion;
+        piece.HasMoved = true;
+        this[m.To] = piece;
+        this[m.From] = default;
+        WhiteToMove = !WhiteToMove;
     }
 }

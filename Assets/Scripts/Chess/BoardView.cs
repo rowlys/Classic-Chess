@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -124,7 +125,7 @@ public class BoardView : MonoBehaviour
         foreach (var (sq, go) in pieceObjects)
             go.transform.localPosition = PiecePosition(sq) + (sq == selected ? Vector2.up * pickupHeight : Vector2.zero);
 
-        foreach (var m in selectedMoves) AddDot(m.To);
+        foreach (var to in selectedMoves.Select(m => m.To).Distinct()) AddDot(to);
     }
 
     void AddDot(Vector2Int sq)
