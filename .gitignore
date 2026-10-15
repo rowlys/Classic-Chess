@@ -105,3 +105,7 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Third-party art: license forbids redistribution. Get it from https://dani-maccari.itch.io/
+/Assets/Sprites/pixel chess_v1.2/
+/Assets/Sprites/pixel chess_v1.2.meta
