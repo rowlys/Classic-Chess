@@ -15,6 +15,7 @@ public class BoardView : MonoBehaviour
 
     [SerializeField] float pickupHeight = 0.2f; // 4px
     [SerializeField] Color dotColor = new(0.1f, 0.1f, 0.1f, 0.45f);
+    [SerializeField] Color captureColor = new(1f, 0.3f, 0.3f, 0.35f);
 
     Board board;
     readonly Dictionary<Vector2Int, GameObject> pieceObjects = new();
@@ -23,14 +24,23 @@ public class BoardView : MonoBehaviour
     List<Move> selectedMoves = new();
     readonly List<GameObject> highlightObjects = new();
     Sprite dotSprite;
+    Sprite squareSprite;
+    GameResult result;
 
     void Start()
     {
         dotSprite = CreateDotSprite(3);
-
+        squareSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4); // 1×1 unit
         board = new Board();
+        Restart();
+    }
+
+    void Restart()
+    {
         board.SetupStartPosition();
+        result = GameResult.Ongoing;
         Redraw();
+        Deselect();
     }
 
     public Vector2 SquareToLocal(Vector2Int sq) => gridOffset + new Vector2(
@@ -67,6 +77,8 @@ public class BoardView : MonoBehaviour
 
     void Update()
     {
+        if (result != GameResult.Ongoing) return; // game over: ignore board clicks
+
         var pointer = Pointer.current;
         if (pointer == null || !pointer.press.wasPressedThisFrame) return;
 
@@ -95,6 +107,7 @@ public class BoardView : MonoBehaviour
         if (i >= 0)
         {
             board.Apply(selectedMoves[i]);
+            result = board.Result();
             Redraw();
             Deselect();
             return;
@@ -125,23 +138,41 @@ public class BoardView : MonoBehaviour
         foreach (var (sq, go) in pieceObjects)
             go.transform.localPosition = PiecePosition(sq) + (sq == selected ? Vector2.up * pickupHeight : Vector2.zero);
 
-        foreach (var to in selectedMoves.Select(m => m.To).Distinct()) AddDot(to);
+        foreach (var to in selectedMoves.Select(m => m.To).Distinct())
+        {
+            if (board[to].IsEmpty) AddHighlight(to, dotSprite, dotColor, SortOrder(to.y) + 1);
+            else AddHighlight(to, squareSprite, captureColor, SortOrder(to.y) - 1); // an occupied target is always an enemy
+        }
     }
 
-    void AddDot(Vector2Int sq)
+    void AddHighlight(Vector2Int sq, Sprite sprite, Color color, int sortingOrder)
     {
-        var go = new GameObject("Move Dot");
+        var go = new GameObject("Highlight");
         go.transform.SetParent(transform, false);
         go.transform.localPosition = SquareToLocal(sq);
         go.transform.localScale = new Vector3(squareSize.x, squareSize.y, 1);
 
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = dotSprite;
-        sr.color = dotColor;
-        sr.sortingOrder = SortOrder(sq.y) + 1;
+        sr.sprite = sprite;
+        sr.color = color;
+        sr.sortingOrder = sortingOrder;
 
         highlightObjects.Add(go);
     }
+
+    // shortcut: IMGUI is plain and fixed-size; replace with a styled UI panel during polish
+    void OnGUI()
+    {
+        if (result == GameResult.Ongoing) return;
+
+        var box = new Rect(Screen.width / 2f - 130, Screen.height / 2f - 50, 260, 100);
+        GUI.Box(box, ResultText());
+        if (GUI.Button(new Rect(box.x + 80, box.y + 50, 100, 30), "Play again")) Restart();
+    }
+
+    string ResultText() => result == GameResult.Draw
+        ? "Stalemate: it's a draw"
+        : $"{(result == GameResult.WhiteWins ? "White" : "Black")} wins by {(board.KingIsRoyal ? "checkmate" : "capturing every piece")}";
 
     static Sprite CreateDotSprite(float radius)
     {

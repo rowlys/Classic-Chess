@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public partial class Board
@@ -26,9 +27,34 @@ public partial class Board
         return moves;
     }
 
+    // Every legal move for the side to move
+    public List<Move> AllMoves()
+    {
+        var moves = new List<Move>();
+        for (int x = 0; x < Width; x++)
+            for (int y = 0; y < Height; y++)
+            {
+                var sq = new Vector2Int(x, y);
+                if (!this[sq].IsEmpty && this[sq].IsWhite == WhiteToMove) moves.AddRange(MovesFrom(sq));
+            }
+        return moves;
+    }
+
+    // Judged for the side to move: only they can have just lost a piece
+    public GameResult Result()
+    {
+        var loss = WhiteToMove ? GameResult.BlackWins : GameResult.WhiteWins;
+
+        if (!KingIsRoyal && !HasPieces(WhiteToMove)) return loss; // roguelike: lose when every piece is gone
+        if (AllMoves().Count > 0) return GameResult.Ongoing;
+        return IsInCheck(WhiteToMove) ? loss : GameResult.Draw;   // no moves: checkmate if in check, otherwise stalemate
+    }
+
+    bool HasPieces(bool white) => Squares.Cast<Piece>().Any(p => !p.IsEmpty && p.IsWhite == white);
+
     public bool IsInCheck(bool white) => FindKing(white) is Vector2Int king && IsAttacked(king, byWhite: !white);
 
-    // Null if that side has no king (possible in custom setups), which counts as never in check
+    // Null if that side has no king (custom setups): counts as never in check
     Vector2Int? FindKing(bool white)
     {
         for (int x = 0; x < Width; x++)
@@ -37,7 +63,7 @@ public partial class Board
         return null;
     }
 
-    // Is `sq` attacked by the given colour? Looks outward from the square as each piece type, instead of generating every enemy move.
+    // Looks outward from sq as each piece type, instead of generating every enemy move
     public bool IsAttacked(Vector2Int sq, bool byWhite)
     {
         bool Has(Vector2Int s, PieceType type) => InBounds(s) && this[s].Type == type && this[s].IsWhite == byWhite;
@@ -45,7 +71,7 @@ public partial class Board
         foreach (var d in KnightJumps) if (Has(sq + d, PieceType.Knight)) return true;
         foreach (var d in AllDirections) if (Has(sq + d, PieceType.King)) return true;
 
-        // A white pawn attacks diagonally upward, so it would sit one rank *below* sq (and the opposite for black)
+        // An attacking white pawn sits one rank below sq, a black one above
         int pawnRank = byWhite ? -1 : 1;
         if (Has(sq + new Vector2Int(-1, pawnRank), PieceType.Pawn) || Has(sq + new Vector2Int(1, pawnRank), PieceType.Pawn)) return true;
 
@@ -54,7 +80,7 @@ public partial class Board
         return false;
     }
 
-    // Slide from sq in direction d: is the first piece hit one of these two types, of this colour?
+    // Sliding from sq along d, is the first piece hit this colour and type a or b?
     bool FirstPieceIs(Vector2Int sq, Vector2Int d, bool white, PieceType a, PieceType b)
     {
         for (var s = sq + d; InBounds(s); s += d)
@@ -84,7 +110,7 @@ public partial class Board
 
     bool IsEnemy(Vector2Int sq, bool isWhite) => !this[sq].IsEmpty && this[sq].IsWhite != isWhite;
 
-    // Knight and king: one jump per offset, landing on an empty square or an enemy
+    // Knight and king: one jump per offset onto an empty or enemy square
     void AddSteps(Vector2Int from, Vector2Int[] offsets, List<Move> moves)
     {
         bool isWhite = this[from].IsWhite;
@@ -95,7 +121,7 @@ public partial class Board
         }
     }
 
-    // Bishop, rook and queen: keep going until the edge or a piece; an enemy can be captured, a friend blocks
+    // Bishop, rook, queen: slide until blocked; capture an enemy, stop before a friend
     void AddSlides(Vector2Int from, Vector2Int[] directions, List<Move> moves)
     {
         bool isWhite = this[from].IsWhite;
@@ -108,8 +134,7 @@ public partial class Board
             }
     }
 
-    // King and rook both unmoved, nothing between them, and the king isn't in check and doesn't cross an attacked square.
-    // Landing on an attacked square is filtered by MovesFrom like any other king move.
+    // Needs unmoved king and rook, an empty path, and a safe start and crossed square; MovesFrom checks the landing
     void AddCastling(Vector2Int from, List<Move> moves)
     {
         var king = this[from];
@@ -138,18 +163,18 @@ public partial class Board
         bool isWhite = this[from].IsWhite;
         var forward = isWhite ? Vector2Int.up : Vector2Int.down;
 
-        // Straight ahead: only onto empty squares, never a capture
+        // Forward: empty squares only, never a capture
         var one = from + forward;
         if (InBounds(one) && this[one].IsEmpty)
         {
             AddPawnMove(from, one, moves);
 
-            // Double step on the pawn's first move. Uses HasMoved, not a fixed start rank, so it works on any board size.
+            // Double step if unmoved; uses HasMoved, not a start rank, so any board size works
             var two = one + forward;
             if (!this[from].HasMoved && InBounds(two) && this[two].IsEmpty) moves.Add(new Move(from, two));
         }
 
-        // Diagonally ahead: captures, or en passant onto the square the enemy pawn just skipped
+        // Diagonal: captures, or en passant onto the square the enemy pawn skipped
         for (int dx = -1; dx <= 1; dx += 2)
         {
             var to = one + new Vector2Int(dx, 0);
@@ -159,7 +184,7 @@ public partial class Board
         }
     }
 
-    // Reaching the far rank promotes. All four choices are listed with the queen first, so a click picks the queen until there's a picker.
+    // Far rank promotes; queen is listed first, so a click picks it until there's a picker
     void AddPawnMove(Vector2Int from, Vector2Int to, List<Move> moves)
     {
         bool lastRank = to.y == (this[from].IsWhite ? Height - 1 : 0);
