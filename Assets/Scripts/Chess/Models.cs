@@ -101,6 +101,9 @@ public partial class Board
         return b;
     }
 
+    // Includes en passant, where the captured pawn isn't on the target square
+    public bool IsCapture(Move m) => !this[m.To].IsEmpty || (this[m.From].Type == PieceType.Pawn && m.From.x != m.To.x);
+
     public void Apply(Move m)
     {
         var piece = this[m.From];

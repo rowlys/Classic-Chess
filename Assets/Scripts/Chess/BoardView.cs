@@ -17,6 +17,9 @@ public class BoardView : MonoBehaviour
     [SerializeField] Color dotColor = new(0.1f, 0.1f, 0.1f, 0.45f);
     [SerializeField] Color captureColor = new(1f, 0.3f, 0.3f, 0.35f);
 
+    [SerializeField] AudioSource sfxSource;
+    [SerializeField] AudioClip moveSound, captureSound, checkSound, gameOverSound;
+
     Board board;
     readonly Dictionary<Vector2Int, GameObject> pieceObjects = new();
 
@@ -106,8 +109,11 @@ public class BoardView : MonoBehaviour
         int i = selectedMoves.FindIndex(m => m.To == sq);
         if (i >= 0)
         {
-            board.Apply(selectedMoves[i]);
+            var move = selectedMoves[i];
+            bool capture = board.IsCapture(move);
+            board.Apply(move);
             result = board.Result();
+            PlayMoveSound(capture);
             Redraw();
             Deselect();
             return;
@@ -128,6 +134,16 @@ public class BoardView : MonoBehaviour
         selected = null;
         selectedMoves.Clear();
         DrawHighlights();
+    }
+
+    // One sound per move, most important wins: game over, then check, then capture
+    void PlayMoveSound(bool capture)
+    {
+        var clip = result != GameResult.Ongoing ? gameOverSound
+            : board.KingIsRoyal && board.IsInCheck(board.WhiteToMove) ? checkSound
+            : capture ? captureSound
+            : moveSound;
+        if (clip) sfxSource.PlayOneShot(clip); // an empty slot plays nothing
     }
 
     void DrawHighlights()
