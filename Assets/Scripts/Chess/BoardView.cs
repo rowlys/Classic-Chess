@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class BoardView : MonoBehaviour
@@ -20,7 +22,10 @@ public class BoardView : MonoBehaviour
     [SerializeField] AudioSource sfxSource;
     [SerializeField] AudioClip moveSound, captureSound, checkSound, gameOverSound;
 
-    Board board;
+    [SerializeField] GameObject gameOverPanel;
+    [SerializeField] TMP_Text gameOverText;
+
+    readonly Board board = new(); 
     readonly Dictionary<Vector2Int, GameObject> pieceObjects = new();
 
     Vector2Int? selected;
@@ -34,14 +39,14 @@ public class BoardView : MonoBehaviour
     {
         dotSprite = CreateDotSprite(3);
         squareSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4); // 1×1 unit
-        board = new Board();
         Restart();
     }
 
-    void Restart()
+    public void Restart()
     {
         board.SetupStartPosition();
         result = GameResult.Ongoing;
+        gameOverPanel.SetActive(false);
         Redraw();
         Deselect();
     }
@@ -84,6 +89,7 @@ public class BoardView : MonoBehaviour
 
         var pointer = Pointer.current;
         if (pointer == null || !pointer.press.wasPressedThisFrame) return;
+        if (EventSystem.current && EventSystem.current.IsPointerOverGameObject()) return; // click was on UI
 
         var sq = WorldToSquare(Camera.main.ScreenToWorldPoint(pointer.position.ReadValue()));
         if (board.InBounds(sq)) OnSquareClicked(sq);
@@ -114,6 +120,11 @@ public class BoardView : MonoBehaviour
             board.Apply(move);
             result = board.Result();
             PlayMoveSound(capture);
+            if (result != GameResult.Ongoing)
+            {
+                gameOverText.text = ResultText();
+                gameOverPanel.SetActive(true);
+            }
             Redraw();
             Deselect();
             return;
@@ -176,14 +187,22 @@ public class BoardView : MonoBehaviour
         highlightObjects.Add(go);
     }
 
-    // shortcut: IMGUI is plain and fixed-size; replace with a styled UI panel during polish
-    void OnGUI()
+    // Called by SettingsMenu. Square spacing belongs to the board art (plain vs perspective)
+    public void SetBoard(BoardSkin skin)
     {
-        if (result == GameResult.Ongoing) return;
+        GetComponent<SpriteRenderer>().sprite = skin.sprite;
+        squareSize = skin.squareSize;
+        gridOffset = skin.gridOffset;
+        Redraw();
+        DrawHighlights();
+    }
 
-        var box = new Rect(Screen.width / 2f - 130, Screen.height / 2f - 50, 260, 100);
-        GUI.Box(box, ResultText());
-        if (GUI.Button(new Rect(box.x + 80, box.y + 50, 100, 30), "Play again")) Restart();
+    public void SetPieces(PieceSkin skin)
+    {
+        whiteSprites = skin.white;
+        blackSprites = skin.black;
+        Redraw();
+        DrawHighlights();
     }
 
     string ResultText() => result == GameResult.Draw
