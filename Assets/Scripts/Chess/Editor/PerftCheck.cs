@@ -32,6 +32,15 @@ public static class PerftCheck
                 if (ok) Debug.Log(line); else Debug.LogError(line);
             }
         }
+
+        // Fool's mate: the AI, playing black, must find Qd8-h4
+        var foolsMate = new Board();
+        foolsMate.LoadFen("rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2");
+        var ai = ChessAI.BestMove(foolsMate, 2);
+        bool mateOk = ai.From == new UnityEngine.Vector2Int(3, 7) && ai.To == new UnityEngine.Vector2Int(7, 3);
+        allOk &= mateOk;
+        if (mateOk) Debug.Log("AI finds mate in one: OK"); else Debug.LogError($"AI missed mate in one, played {ai.From}->{ai.To}");
+
         if (allOk) Debug.Log("Perft: all rules correct");
     }
 

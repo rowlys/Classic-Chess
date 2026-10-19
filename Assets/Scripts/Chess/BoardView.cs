@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
@@ -19,11 +20,12 @@ public class BoardView : MonoBehaviour
     [SerializeField] Color dotColor = new(0.1f, 0.1f, 0.1f, 0.45f);
     [SerializeField] Color captureColor = new(1f, 0.3f, 0.3f, 0.35f);
 
-    [SerializeField] AudioSource sfxSource;
-    [SerializeField] AudioClip moveSound, captureSound, checkSound, gameOverSound;
-
     [SerializeField] GameObject gameOverPanel;
     [SerializeField] TMP_Text gameOverText;
+
+    [SerializeField] bool vsAI;      
+    [SerializeField] int aiDepth = 3; // how many turns ahead the AI looks
+    [SerializeField] float aiDelay = 1f;
 
     readonly Board board = new(); 
     readonly Dictionary<Vector2Int, GameObject> pieceObjects = new();
@@ -44,6 +46,7 @@ public class BoardView : MonoBehaviour
 
     public void Restart()
     {
+        StopAllCoroutines();
         board.SetupStartPosition();
         result = GameResult.Ongoing;
         gameOverPanel.SetActive(false);
@@ -86,6 +89,7 @@ public class BoardView : MonoBehaviour
     void Update()
     {
         if (result != GameResult.Ongoing) return; // game over: ignore board clicks
+        if (vsAI && !board.WhiteToMove) return; // AI's turn: ignore clicks
 
         var pointer = Pointer.current;
         if (pointer == null || !pointer.press.wasPressedThisFrame) return;
@@ -115,18 +119,8 @@ public class BoardView : MonoBehaviour
         int i = selectedMoves.FindIndex(m => m.To == sq);
         if (i >= 0)
         {
-            var move = selectedMoves[i];
-            bool capture = board.IsCapture(move);
-            board.Apply(move);
-            result = board.Result();
-            PlayMoveSound(capture);
-            if (result != GameResult.Ongoing)
-            {
-                gameOverText.text = ResultText();
-                gameOverPanel.SetActive(true);
-            }
-            Redraw();
-            Deselect();
+            MakeMove(selectedMoves[i]);
+            if (vsAI && result == GameResult.Ongoing) StartCoroutine(AIMove());
             return;
         }
 
@@ -140,21 +134,32 @@ public class BoardView : MonoBehaviour
         else Deselect();
     }
 
+    void MakeMove(Move move)
+    {
+        bool capture = board.IsCapture(move);
+        board.Apply(move);
+        result = board.Result();
+        AudioManager.Instance.PlayMove(result != GameResult.Ongoing, board.KingIsRoyal && board.IsInCheck(board.WhiteToMove), capture);
+        if (result != GameResult.Ongoing)
+        {
+            gameOverText.text = ResultText();
+            gameOverPanel.SetActive(true);
+        }
+        Redraw();
+        Deselect();
+    }
+
+    IEnumerator AIMove()
+    {
+        yield return new WaitForSeconds(aiDelay); // delay to avoid hard to follow instant moves
+        MakeMove(ChessAI.BestMove(board, aiDepth));
+    }
+
     void Deselect()
     {
         selected = null;
         selectedMoves.Clear();
         DrawHighlights();
-    }
-
-    // One sound per move, most important wins: game over, then check, then capture
-    void PlayMoveSound(bool capture)
-    {
-        var clip = result != GameResult.Ongoing ? gameOverSound
-            : board.KingIsRoyal && board.IsInCheck(board.WhiteToMove) ? checkSound
-            : capture ? captureSound
-            : moveSound;
-        if (clip) sfxSource.PlayOneShot(clip); // an empty slot plays nothing
     }
 
     void DrawHighlights()

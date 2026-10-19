@@ -11,7 +11,6 @@ using UnityEngine.UI;
 public class SettingsMenu : MonoBehaviour
 {
     [SerializeField] BoardView boardView;
-    [SerializeField] AudioSource musicSource, sfxSource;
     [SerializeField] BoardSkin[] boards;
     [SerializeField] PieceSkin[] pieceSets;
 
@@ -25,8 +24,9 @@ public class SettingsMenu : MonoBehaviour
     void Awake()
     {
         Bind(masterSlider, "MasterVolume", 1f, v => AudioListener.volume = v);
-        Bind(musicSlider, "MusicVolume", musicSource.volume, v => musicSource.volume = v);
-        Bind(sfxSlider, "SfxVolume", sfxSource.volume, v => sfxSource.volume = v);
+        var audio = AudioManager.Instance;
+        Bind(musicSlider, "MusicVolume", audio.MusicVolume, v => audio.MusicVolume = v);
+        Bind(sfxSlider, "SfxVolume", audio.SfxVolume, v => audio.SfxVolume = v);
         Bind(boardList, "Board", boards.Select(b => b.sprite).ToArray(), i => boardView.SetBoard(boards[i]));
         Bind(pieceList, "Pieces", pieceSets.Select(p => p.white[5]).ToArray(), i => boardView.SetPieces(pieceSets[i])); // white king
         Bind(fullscreenToggle, "Fullscreen", Screen.fullScreen, v => Screen.fullScreen = v);
