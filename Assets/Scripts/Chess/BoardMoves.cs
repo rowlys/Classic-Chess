@@ -164,7 +164,7 @@ public partial class Board
         }
     }
 
-    static readonly PieceType[] Promotions = { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight };
+    public static readonly PieceType[] Promotions ={ PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight };
 
     void AddPawnMoves(Vector2Int from, List<Move> moves)
     {
@@ -192,7 +192,6 @@ public partial class Board
         }
     }
 
-    // Far rank promotes; queen is listed first, so a click picks it until there's a picker
     void AddPawnMove(Vector2Int from, Vector2Int to, List<Move> moves)
     {
         bool lastRank = to.y == (this[from].IsWhite ? Height - 1 : 0);

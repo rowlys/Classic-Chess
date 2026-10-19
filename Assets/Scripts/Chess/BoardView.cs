@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class BoardView : MonoBehaviour
 {
@@ -23,7 +24,11 @@ public class BoardView : MonoBehaviour
     [SerializeField] GameObject gameOverPanel;
     [SerializeField] TMP_Text gameOverText;
 
-    public static bool VsAI; // static so it survives the load from the menu scene
+    [SerializeField] GameObject promotionPanel; 
+    [SerializeField] Button[] promotionButtons; // in Board.Promotions order: Queen, Rook, Bishop, Knight
+
+    public static bool VsAI; // static so it survives the load from 
+    // the menu scene
     [SerializeField] int aiDepth = 3; // how many turns ahead the AI looks
     [SerializeField] float aiDelay = 1f;
 
@@ -32,6 +37,7 @@ public class BoardView : MonoBehaviour
 
     Vector2Int? selected;
     List<Move> selectedMoves = new();
+    Move? pendingPromotion;
     readonly List<GameObject> highlightObjects = new();
     Sprite dotSprite;
     Sprite squareSprite;
@@ -41,6 +47,14 @@ public class BoardView : MonoBehaviour
     {
         dotSprite = CreateDotSprite(3);
         squareSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4); // 1×1 unit
+
+        for (int k = 0; k < promotionButtons.Length; k++)
+        {
+            var type = Board.Promotions[k];
+            promotionButtons[k].onClick.AddListener(() => PlayerMove(new Move(pendingPromotion.Value.From, pendingPromotion.Value.To, type)));
+        }
+        promotionPanel.GetComponent<Button>().onClick.AddListener(Deselect);
+
         Restart();
     }
 
@@ -119,8 +133,8 @@ public class BoardView : MonoBehaviour
         int i = selectedMoves.FindIndex(m => m.To == sq);
         if (i >= 0)
         {
-            MakeMove(selectedMoves[i]);
-            if (VsAI && result == GameResult.Ongoing) StartCoroutine(AIMove());
+            if (selectedMoves[i].Promotion == PieceType.None) PlayerMove(selectedMoves[i]);
+            else OpenPromotion(selectedMoves[i]);
             return;
         }
 
@@ -132,6 +146,21 @@ public class BoardView : MonoBehaviour
             DrawHighlights();
         }
         else Deselect();
+    }
+
+    void PlayerMove(Move move)
+    {
+        MakeMove(move);
+        if (VsAI && result == GameResult.Ongoing) StartCoroutine(AIMove());
+    }
+
+    void OpenPromotion(Move move)
+    {
+        pendingPromotion = move;
+        var sprites = board.WhiteToMove ? whiteSprites : blackSprites;
+        for (int k = 0; k < promotionButtons.Length; k++)
+            promotionButtons[k].transform.GetChild(0).GetComponent<Image>().sprite = sprites[(int)Board.Promotions[k] - 1];
+        promotionPanel.SetActive(true);
     }
 
     void MakeMove(Move move)
@@ -158,6 +187,8 @@ public class BoardView : MonoBehaviour
     void Deselect()
     {
         selected = null;
+        pendingPromotion = null;
+        promotionPanel.SetActive(false);
         selectedMoves.Clear();
         DrawHighlights();
     }
