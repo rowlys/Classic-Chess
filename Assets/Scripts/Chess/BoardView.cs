@@ -210,9 +210,11 @@ public class BoardView : MonoBehaviour
         DrawHighlights();
     }
 
-    string ResultText() => result == GameResult.Draw
-        ? "Stalemate: it's a draw"
-        : $"{(result == GameResult.WhiteWins ? "White" : "Black")} wins by {(board.KingIsRoyal ? "checkmate" : "capturing every piece")}";
+    string ResultText() => result != GameResult.Draw
+        ? $"{(result == GameResult.WhiteWins ? "White" : "Black")} wins by {(board.KingIsRoyal ? "checkmate" : "capturing every piece")}"
+        : board.InsufficientMaterial() ? "Draw: not enough pieces to checkmate"
+        : board.HalfmoveClock >= 100 && board.AllMoves().Count > 0 ? "Draw by the 50-move rule"
+        : "Stalemate: it's a draw";
 
     static Sprite CreateDotSprite(float radius)
     {

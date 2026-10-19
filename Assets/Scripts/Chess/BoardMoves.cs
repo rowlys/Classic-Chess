@@ -46,11 +46,19 @@ public partial class Board
         var loss = WhiteToMove ? GameResult.BlackWins : GameResult.WhiteWins;
 
         if (!KingIsRoyal && !HasPieces(WhiteToMove)) return loss; // roguelike: lose when every piece is gone
-        if (AllMoves().Count > 0) return GameResult.Ongoing;
+        if (AllMoves().Count > 0) return HalfmoveClock >= 100 || InsufficientMaterial() ? GameResult.Draw : GameResult.Ongoing;
         return IsInCheck(WhiteToMove) ? loss : GameResult.Draw;   // no moves: checkmate if in check, otherwise stalemate
     }
 
     bool HasPieces(bool white) => Squares.Cast<Piece>().Any(p => !p.IsEmpty && p.IsWhite == white);
+
+    // Kings alone, or with one knight or bishop, can't force mate. Roguelike kings can still capture each other
+    public bool InsufficientMaterial()
+    {
+        if (!KingIsRoyal) return false;
+        var rest = Squares.Cast<Piece>().Where(p => !p.IsEmpty && p.Type != PieceType.King).ToList();
+        return rest.Count == 0 || (rest.Count == 1 && rest[0].Type is PieceType.Knight or PieceType.Bishop);
+    }
 
     public bool IsInCheck(bool white) => FindKing(white) is Vector2Int king && IsAttacked(king, byWhite: !white);
 

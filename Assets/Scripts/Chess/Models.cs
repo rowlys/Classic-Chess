@@ -32,6 +32,7 @@ public partial class Board
 
     public bool WhiteToMove = true;
     public Vector2Int? EnPassantTarget;
+    public int HalfmoveClock; // moves since the last capture or pawn move, for the 50-move rule
 
     // False in the roguelike: the king is just a capturable piece
     public bool KingIsRoyal = true;
@@ -92,6 +93,7 @@ public partial class Board
         EnPassantTarget = fields.Length > 3 && fields[3] != "-"
             ? new Vector2Int(fields[3][0] - 'a', fields[3][1] - '1')
             : (Vector2Int?)null;
+        HalfmoveClock = fields.Length > 4 ? int.Parse(fields[4]) : 0;
     }
 
     public Board Clone()
@@ -108,6 +110,7 @@ public partial class Board
     {
         var piece = this[m.From];
         var delta = m.To - m.From;
+        HalfmoveClock = piece.Type == PieceType.Pawn || !this[m.To].IsEmpty ? 0 : HalfmoveClock + 1;
 
         // En passant: a diagonal pawn move onto an empty square captures the pawn beside it
         if (piece.Type == PieceType.Pawn && delta.x != 0 && this[m.To].IsEmpty)
