@@ -23,7 +23,7 @@ public class BoardView : MonoBehaviour
     [SerializeField] GameObject gameOverPanel;
     [SerializeField] TMP_Text gameOverText;
 
-    [SerializeField] bool vsAI;      
+    public static bool VsAI; // static so it survives the load from the menu scene
     [SerializeField] int aiDepth = 3; // how many turns ahead the AI looks
     [SerializeField] float aiDelay = 1f;
 
@@ -89,7 +89,7 @@ public class BoardView : MonoBehaviour
     void Update()
     {
         if (result != GameResult.Ongoing) return; // game over: ignore board clicks
-        if (vsAI && !board.WhiteToMove) return; // AI's turn: ignore clicks
+        if (VsAI && !board.WhiteToMove) return; // AI's turn: ignore clicks
 
         var pointer = Pointer.current;
         if (pointer == null || !pointer.press.wasPressedThisFrame) return;
@@ -120,7 +120,7 @@ public class BoardView : MonoBehaviour
         if (i >= 0)
         {
             MakeMove(selectedMoves[i]);
-            if (vsAI && result == GameResult.Ongoing) StartCoroutine(AIMove());
+            if (VsAI && result == GameResult.Ongoing) StartCoroutine(AIMove());
             return;
         }
 
